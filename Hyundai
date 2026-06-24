@@ -1,4 +1,4 @@
--- Hyundai Treasure & Worldcup Box · iOS Panel by SPRUY DARK AI
+-- Hyundai Treasure & Worldcup Box · Manual + Bypass by SPRUY DARK AI
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UIS = game:GetService("UserInputService")
@@ -8,14 +8,14 @@ local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "HyundaiWCB_iOS"
+ScreenGui.Name = "HyundaiWCB_Manual"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = PlayerGui
 
 -- ==================== iOS PANEL ====================
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 320, 0, 320) -- sedikit lebih tinggi untuk tombol tambahan
-Main.Position = UDim2.new(0.5, -160, 0.5, -160)
+Main.Size = UDim2.new(0, 320, 0, 290)  -- lebih pendek karena tombol berkurang
+Main.Position = UDim2.new(0.5, -160, 0.5, -145)
 Main.BackgroundColor3 = Color3.fromRGB(22,22,22)
 Main.BackgroundTransparency = 0.20
 Main.BorderSizePixel = 0
@@ -134,8 +134,6 @@ MinBtn.MouseButton1Click:Connect(function()
 end)
 
 CloseBtn.MouseButton1Click:Connect(function()
-	stop = true
-	autoTP = false
 	TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), { Size = UDim2.new(0,0,0,0) }):Play().Completed:Wait()
 	ScreenGui:Destroy()
 end)
@@ -145,7 +143,6 @@ local treasureFolder = nil
 local worldcupFolder = nil
 
 local function findFolders()
-	-- TreasurePartFolder
 	treasureFolder = Workspace:FindFirstChild("TreasurePartFolder")
 	if not treasureFolder then
 		for _, obj in ipairs(Workspace:GetDescendants()) do
@@ -155,7 +152,6 @@ local function findFolders()
 			end
 		end
 	end
-	-- Worldcup_Box
 	worldcupFolder = Workspace:FindFirstChild("Worldcup_Box")
 	if not worldcupFolder then
 		for _, obj in ipairs(Workspace:GetDescendants()) do
@@ -168,7 +164,6 @@ local function findFolders()
 end
 findFolders()
 
--- Background loop pencarian folder
 spawn(function()
 	while not treasureFolder or not worldcupFolder do
 		task.wait(0.5)
@@ -177,14 +172,11 @@ spawn(function()
 end)
 
 -- ==================== FUNGSI UTAMA ====================
-local currentTarget = "treasure" -- "treasure" atau "worldcup"
-local stop = false
-local autoTP = false
+local currentTarget = "treasure"
 local bypass = false
 
 local function getPosition(obj)
-	if obj:IsA("BasePart") then
-		return obj.Position
+	if obj:IsA("BasePart") then return obj.Position
 	elseif obj:IsA("Model") then
 		local pp = obj.PrimaryPart
 		if pp then return pp.Position end
@@ -212,24 +204,27 @@ local function getItems()
 	return items
 end
 
-local function teleportAll()
-	local items = getItems()
-	if #items == 0 then return end
-	local delayTime = bypass and 0 or 0.8
-	for _, item in ipairs(items) do
-		if stop or not autoTP then break end
-		local char = Player.Character
-		if char and char:FindFirstChild("HumanoidRootPart") then
-			char.HumanoidRootPart.CFrame = CFrame.new(item.Position)
-		end
-		task.wait(delayTime)
-	end
-end
+-- Metode gerakan bypass: WalkSpeed tinggi tanpa teleport
+local function moveToTarget(item)
+	local pos = item.Position
+	local char = Player.Character
+	if not char or not char:FindFirstChild("Humanoid") or not char:FindFirstChild("HumanoidRootPart") then return end
+	local hum = char.Humanoid
+	local root = char.HumanoidRootPart
 
-local function autoTPLoop()
-	while autoTP and not stop do
-		teleportAll()
-		task.wait(bypass and 0.5 or 1)
+	if bypass then
+		-- Bypass ON: teleport instan
+		root.CFrame = CFrame.new(pos)
+	else
+		-- Bypass OFF: lari cepat (WalkSpeed 150)
+		local oldSpeed = hum.WalkSpeed
+		hum.WalkSpeed = 150
+		hum:MoveTo(pos)
+		for _ = 1, 30 do
+			if (root.Position - pos).Magnitude <= 10 then break end
+			task.wait(0.1)
+		end
+		hum.WalkSpeed = oldSpeed
 	end
 end
 
@@ -244,7 +239,7 @@ targetBar.Parent = Content
 local treasureBtn = Instance.new("TextButton")
 treasureBtn.Size = UDim2.new(0.5,-4,1,0)
 treasureBtn.Position = UDim2.new(0,0,0,0)
-treasureBtn.BackgroundColor3 = Color3.fromRGB(10,132,255) -- aktif default
+treasureBtn.BackgroundColor3 = Color3.fromRGB(10,132,255)  -- aktif default
 treasureBtn.BackgroundTransparency = 0.15
 treasureBtn.Text = "Treasure"
 treasureBtn.TextColor3 = Color3.new(1,1,1)
@@ -267,7 +262,7 @@ worldcupBtn.BorderSizePixel = 0
 worldcupBtn.Parent = targetBar
 Instance.new("UICorner", worldcupBtn).CornerRadius = UDim.new(0,10)
 
--- Baris kontrol: Refresh & Auto TP
+-- Baris kontrol: Refresh & Bypass
 local controlBar = Instance.new("Frame")
 controlBar.Size = UDim2.new(1,0,0,32)
 controlBar.Position = UDim2.new(0,4,0,40)
@@ -287,42 +282,23 @@ refreshBtn.BorderSizePixel = 0
 refreshBtn.Parent = controlBar
 Instance.new("UICorner", refreshBtn).CornerRadius = UDim.new(0,8)
 
-local autoBtn = Instance.new("TextButton")
-autoBtn.Size = UDim2.new(0.48,0,1,0)
-autoBtn.Position = UDim2.new(0.52,0,0,0)
-autoBtn.BackgroundColor3 = Color3.fromRGB(44,44,46)
-autoBtn.BackgroundTransparency = 0.15
-autoBtn.Text = "Auto TP: OFF"
-autoBtn.TextColor3 = Color3.new(1,1,1)
-autoBtn.Font = Enum.Font.GothamBold
-autoBtn.TextSize = 12
-autoBtn.BorderSizePixel = 0
-autoBtn.Parent = controlBar
-Instance.new("UICorner", autoBtn).CornerRadius = UDim.new(0,8)
-
--- Baris Bypass
-local row2 = Instance.new("Frame")
-row2.Size = UDim2.new(1,0,0,32)
-row2.Position = UDim2.new(0,4,0,76)
-row2.BackgroundTransparency = 1
-row2.Parent = Content
-
 local bypassBtn = Instance.new("TextButton")
-bypassBtn.Size = UDim2.new(1,0,1,0)
+bypassBtn.Size = UDim2.new(0.48,0,1,0)
+bypassBtn.Position = UDim2.new(0.52,0,0,0)
 bypassBtn.BackgroundColor3 = Color3.fromRGB(44,44,46)
 bypassBtn.BackgroundTransparency = 0.15
 bypassBtn.Text = "Bypass: OFF"
 bypassBtn.TextColor3 = Color3.new(1,1,1)
 bypassBtn.Font = Enum.Font.GothamBold
-bypassBtn.TextSize = 13
+bypassBtn.TextSize = 12
 bypassBtn.BorderSizePixel = 0
-bypassBtn.Parent = row2
+bypassBtn.Parent = controlBar
 Instance.new("UICorner", bypassBtn).CornerRadius = UDim.new(0,8)
 
 -- Daftar item
 local list = Instance.new("ScrollingFrame")
-list.Size = UDim2.new(1,0,1,-126)
-list.Position = UDim2.new(0,4,0,112)
+list.Size = UDim2.new(1,0,1,-90)
+list.Position = UDim2.new(0,4,0,76)
 list.BackgroundColor3 = Color3.fromRGB(44,44,46)
 list.BackgroundTransparency = 0.12
 list.BorderSizePixel = 0
@@ -376,10 +352,7 @@ local function populate()
 		txt.TextXAlignment = Enum.TextXAlignment.Left
 
 		row.MouseButton1Click:Connect(function()
-			local char = Player.Character
-			if char and char:FindFirstChild("HumanoidRootPart") then
-				char.HumanoidRootPart.CFrame = CFrame.new(item.Position)
-			end
+			moveToTarget(item)
 		end)
 	end
 
@@ -404,15 +377,6 @@ end)
 
 refreshBtn.MouseButton1Click:Connect(populate)
 
-autoBtn.MouseButton1Click:Connect(function()
-	autoTP = not autoTP
-	autoBtn.Text = "Auto TP: " .. (autoTP and "ON" or "OFF")
-	autoBtn.BackgroundColor3 = autoTP and Color3.fromRGB(10,132,255) or Color3.fromRGB(44,44,46)
-	if autoTP then
-		spawn(autoTPLoop)
-	end
-end)
-
 bypassBtn.MouseButton1Click:Connect(function()
 	bypass = not bypass
 	bypassBtn.Text = "Bypass: " .. (bypass and "ON" or "OFF")
@@ -424,7 +388,7 @@ populate()
 
 -- Auto refresh
 spawn(function()
-	while not stop do
+	while true do
 		task.wait(3)
 		populate()
 	end
