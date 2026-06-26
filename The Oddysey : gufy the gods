@@ -1,0 +1,398 @@
+-- The Odyssey: Defy the Gods · Interactive Item TP + All Players TP · iOS Panel (Manual Refresh)
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UIS = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "OdysseyTP_iOS"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = PlayerGui
+
+-- ==================== iOS PANEL (Compact) ====================
+local Main = Instance.new("Frame")
+Main.Size = UDim2.new(0, 320, 0, 420)   -- sedikit lebih tinggi untuk tombol Refresh
+Main.Position = UDim2.new(0.5, -160, 0.5, -210)
+Main.BackgroundColor3 = Color3.fromRGB(22,22,22)
+Main.BackgroundTransparency = 0.20
+Main.BorderSizePixel = 0
+Main.Parent = ScreenGui
+
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0,18)
+Instance.new("UIStroke", Main).Color = Color3.fromRGB(65,65,65)
+Main:FindFirstChildOfClass("UIStroke").Thickness = 1
+Main:FindFirstChildOfClass("UIStroke").Transparency = 0.35
+
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1,0,0,40)
+TopBar.BackgroundTransparency = 1
+TopBar.Parent = Main
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1,-100,1,0)
+Title.Position = UDim2.new(0,15,0,0)
+Title.BackgroundTransparency = 1
+Title.Text = "Odyssey TP"
+Title.TextColor3 = Color3.fromRGB(255,255,255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 15
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TopBar
+
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0,24,0,24)
+MinBtn.Position = UDim2.new(1,-65,0.5,-12)
+MinBtn.Text = "−"
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.TextSize = 18
+MinBtn.TextColor3 = Color3.new(1,1,1)
+MinBtn.BackgroundColor3 = Color3.fromRGB(255,189,46)
+MinBtn.Parent = TopBar
+Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(1,0)
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0,24,0,24)
+CloseBtn.Position = UDim2.new(1,-35,0.5,-12)
+CloseBtn.Text = "×"
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 18
+CloseBtn.TextColor3 = Color3.new(1,1,1)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(255,95,86)
+CloseBtn.Parent = TopBar
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(1,0)
+
+local Content = Instance.new("Frame")
+Content.Size = UDim2.new(1,-20,1,-55)
+Content.Position = UDim2.new(0,10,0,45)
+Content.BackgroundColor3 = Color3.fromRGB(30,30,30)
+Content.BackgroundTransparency = 0.25
+Content.BorderSizePixel = 0
+Content.Parent = Main
+Instance.new("UICorner", Content).CornerRadius = UDim.new(0,14)
+Instance.new("UIStroke", Content).Color = Color3.fromRGB(55,55,55)
+Content:FindFirstChildOfClass("UIStroke").Thickness = 1
+Content:FindFirstChildOfClass("UIStroke").Transparency = 0.45
+
+-- ==================== DRAG ====================
+local dragging = false
+local dragInput
+local dragStart
+local startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    Main.Position = UDim2.new(
+        startPos.X.Scale,
+        startPos.X.Offset + delta.X,
+        startPos.Y.Scale,
+        startPos.Y.Offset + delta.Y
+    )
+end
+
+TopBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = Main.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+TopBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
+
+-- ==================== MINIMIZE / CLOSE ====================
+local Minimized = false
+local FullSize = Main.Size
+
+MinBtn.MouseButton1Click:Connect(function()
+    Minimized = not Minimized
+    if Minimized then
+        Content.Visible = false
+        TweenService:Create(Main, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.new(0,320,0,40) }):Play()
+    else
+        TweenService:Create(Main, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = FullSize }):Play()
+        task.wait(0.2)
+        Content.Visible = true
+    end
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- ==================== FUNGSI TELEPORT ====================
+local function getItemPosition(obj)
+    if obj:IsA("BasePart") then
+        return obj.Position
+    elseif obj:IsA("Model") then
+        local pp = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+        if pp then return pp.Position end
+    elseif obj:IsA("Folder") then
+        for _, child in ipairs(obj:GetDescendants()) do
+            if child:IsA("BasePart") then return child.Position end
+        end
+    end
+    return nil
+end
+
+local function hasProximityPrompt(obj)
+    for _, child in ipairs(obj:GetDescendants()) do
+        if child:IsA("ProximityPrompt") then
+            return true
+        end
+    end
+    return false
+end
+
+local function teleportToItem(item)
+    local pos = getItemPosition(item)
+    if pos then
+        local char = Player.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            char.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
+        end
+    end
+end
+
+local function teleportToPlayer(targetPlayer)
+    local char = targetPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local pos = char.HumanoidRootPart.Position
+        local myChar = Player.Character
+        if myChar and myChar:FindFirstChild("HumanoidRootPart") then
+            myChar.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
+        end
+    end
+end
+
+-- ==================== DAFTAR ITEM TARGET ====================
+local targetNames = {
+    "Apple", "Axe", "Bucket", "FishLarge", "FishMedium", "Fish small", "Plank", "Repair hammer", "RepairHammer"
+}
+
+local function collectInteractiveItems()
+    local items = {}
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        local name = obj.Name
+        for _, target in ipairs(targetNames) do
+            if name == target and (obj:IsA("BasePart") or obj:IsA("Model") or obj:IsA("Folder")) then
+                if hasProximityPrompt(obj) then
+                    local pos = getItemPosition(obj)
+                    if pos then
+                        table.insert(items, {Name = name, Obj = obj, Position = pos})
+                    end
+                end
+                break
+            end
+        end
+    end
+    -- Urutkan sesuai targetNames
+    local sorted = {}
+    for _, target in ipairs(targetNames) do
+        for _, item in ipairs(items) do
+            if item.Name == target then
+                table.insert(sorted, item)
+            end
+        end
+    end
+    return sorted
+end
+
+-- ==================== UI CONTENT ====================
+-- Section Items (setengah atas)
+local itemList = Instance.new("ScrollingFrame")
+itemList.Size = UDim2.new(1,0,0.45,0)   -- 45% tinggi Content
+itemList.Position = UDim2.new(0,4,0,4)
+itemList.BackgroundTransparency = 1
+itemList.BorderSizePixel = 0
+itemList.ScrollBarThickness = 3
+itemList.CanvasSize = UDim2.new(0,0,0,0)
+itemList.Parent = Content
+Instance.new("UICorner", itemList).CornerRadius = UDim.new(0,8)
+
+local itemLayout = Instance.new("UIListLayout")
+itemLayout.Parent = itemList
+itemLayout.Padding = UDim.new(0,4)
+
+-- Tombol Refresh (di bawah item list)
+local refreshBtn = Instance.new("TextButton")
+refreshBtn.Size = UDim2.new(1,0,0,28)
+refreshBtn.Position = UDim2.new(0,4,0.45,4)   -- tepat di bawah itemList
+refreshBtn.BackgroundColor3 = Color3.fromRGB(10,132,255)
+refreshBtn.BackgroundTransparency = 0.15
+refreshBtn.Text = "Refresh All"
+refreshBtn.TextColor3 = Color3.new(1,1,1)
+refreshBtn.Font = Enum.Font.GothamBold
+refreshBtn.TextSize = 13
+refreshBtn.BorderSizePixel = 0
+refreshBtn.Parent = Content
+Instance.new("UICorner", refreshBtn).CornerRadius = UDim.new(0,8)
+
+-- Section Players (setengah bawah, di bawah tombol refresh)
+local playerList = Instance.new("ScrollingFrame")
+playerList.Size = UDim2.new(1,0,1,-0.45*1 - 32)   -- sisa ruang setelah itemList dan tombol
+playerList.Position = UDim2.new(0,4,0.45,36)      -- 36 = 4 (margin itemList) + 28 (tinggi tombol) + 4 (margin)
+playerList.BackgroundTransparency = 1
+playerList.BorderSizePixel = 0
+playerList.ScrollBarThickness = 3
+playerList.CanvasSize = UDim2.new(0,0,0,0)
+playerList.Parent = Content
+Instance.new("UICorner", playerList).CornerRadius = UDim.new(0,8)
+
+local playerLayout = Instance.new("UIListLayout")
+playerLayout.Parent = playerList
+playerLayout.Padding = UDim.new(0,4)
+
+-- ==================== POPULATE FUNCTIONS ====================
+local function populateItems()
+    for _, child in ipairs(itemList:GetChildren()) do
+        if child:IsA("Frame") or child:IsA("TextButton") then child:Destroy() end
+    end
+
+    local items = collectInteractiveItems()
+    if #items == 0 then
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1,0,0,24)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = "Tidak ada item interaktif"
+        lbl.TextColor3 = Color3.fromRGB(200,200,200)
+        lbl.Font = Enum.Font.Gotham
+        lbl.TextSize = 13
+        lbl.TextXAlignment = Enum.TextXAlignment.Center
+        lbl.Parent = itemList
+        return
+    end
+
+    for _, item in ipairs(items) do
+        local row = Instance.new("TextButton")
+        row.Size = UDim2.new(1, -4, 0, 36)
+        row.BackgroundColor3 = Color3.fromRGB(44,44,46)
+        row.BackgroundTransparency = 0.15
+        row.Text = ""
+        row.AutoButtonColor = false
+        row.BorderSizePixel = 0
+        row.Parent = itemList
+        Instance.new("UICorner", row).CornerRadius = UDim.new(0,8)
+
+        local nameLabel = Instance.new("TextLabel")
+        nameLabel.Size = UDim2.new(1, -70, 1, 0)
+        nameLabel.Position = UDim2.new(0, 10, 0, 0)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Text = "●  " .. item.Name
+        nameLabel.TextColor3 = Color3.fromRGB(255,255,255)
+        nameLabel.Font = Enum.Font.GothamBold
+        nameLabel.TextSize = 14
+        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+        nameLabel.Parent = row
+
+        local tpBtn = Instance.new("TextButton")
+        tpBtn.Size = UDim2.new(0, 60, 0, 28)
+        tpBtn.Position = UDim2.new(1, -70, 0.5, -14)
+        tpBtn.BackgroundColor3 = Color3.fromRGB(10,132,255)
+        tpBtn.BackgroundTransparency = 0.15
+        tpBtn.Text = "TP"
+        tpBtn.TextColor3 = Color3.new(1,1,1)
+        tpBtn.Font = Enum.Font.GothamBold
+        tpBtn.TextSize = 14
+        tpBtn.BorderSizePixel = 0
+        Instance.new("UICorner", tpBtn).CornerRadius = UDim.new(0,6)
+        tpBtn.Parent = row
+
+        tpBtn.MouseButton1Click:Connect(function()
+            teleportToItem(item.Obj)
+        end)
+    end
+
+    itemList.CanvasSize = UDim2.new(0,0,0, itemLayout.AbsoluteContentSize.Y + 20)
+end
+
+local function populatePlayers()
+    for _, child in ipairs(playerList:GetChildren()) do
+        if child:IsA("Frame") or child:IsA("TextButton") then child:Destroy() end
+    end
+
+    local players = Players:GetPlayers()
+    if #players <= 1 then
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1,0,0,24)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = "Tidak ada pemain lain"
+        lbl.TextColor3 = Color3.fromRGB(200,200,200)
+        lbl.Font = Enum.Font.Gotham
+        lbl.TextSize = 13
+        lbl.TextXAlignment = Enum.TextXAlignment.Center
+        lbl.Parent = playerList
+        return
+    end
+
+    for _, target in ipairs(players) do
+        if target ~= Player then
+            local row = Instance.new("TextButton")
+            row.Size = UDim2.new(1, -4, 0, 36)
+            row.BackgroundColor3 = Color3.fromRGB(44,44,46)
+            row.BackgroundTransparency = 0.15
+            row.Text = ""
+            row.AutoButtonColor = false
+            row.BorderSizePixel = 0
+            row.Parent = playerList
+            Instance.new("UICorner", row).CornerRadius = UDim.new(0,8)
+
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Size = UDim2.new(1, -70, 1, 0)
+            nameLabel.Position = UDim2.new(0, 10, 0, 0)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.Text = "👤  " .. target.Name
+            nameLabel.TextColor3 = Color3.fromRGB(255,255,255)
+            nameLabel.Font = Enum.Font.GothamBold
+            nameLabel.TextSize = 14
+            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+            nameLabel.Parent = row
+
+            local tpBtn = Instance.new("TextButton")
+            tpBtn.Size = UDim2.new(0, 60, 0, 28)
+            tpBtn.Position = UDim2.new(1, -70, 0.5, -14)
+            tpBtn.BackgroundColor3 = Color3.fromRGB(255,95,86)
+            tpBtn.BackgroundTransparency = 0.15
+            tpBtn.Text = "TP"
+            tpBtn.TextColor3 = Color3.new(1,1,1)
+            tpBtn.Font = Enum.Font.GothamBold
+            tpBtn.TextSize = 14
+            tpBtn.BorderSizePixel = 0
+            Instance.new("UICorner", tpBtn).CornerRadius = UDim.new(0,6)
+            tpBtn.Parent = row
+
+            tpBtn.MouseButton1Click:Connect(function()
+                teleportToPlayer(target)
+            end)
+        end
+    end
+
+    playerList.CanvasSize = UDim2.new(0,0,0, playerLayout.AbsoluteContentSize.Y + 20)
+end
+
+-- Tombol Refresh panggil kedua populate
+refreshBtn.MouseButton1Click:Connect(function()
+    populateItems()
+    populatePlayers()
+end)
+
+-- Populate pertama kali
+populateItems()
+populatePlayers()
